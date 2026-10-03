@@ -65,6 +65,7 @@ def main():
                     help="Bundan kisa izler (hayalet/yanlis tespit) atilir (varsayilan 3)")
     ap.add_argument("--court-margin", type=float,
                     help="Saha disi tolerans (m): disindaki tespitler (seyirci/yedek) atilir; dogru --calib gerekir")
+    ap.add_argument("--debug", action="store_true", help="Takip/kamera tanilama bilgisini yazdir")
     ap.add_argument("--no-camera-motion", action="store_true", help="Sabit kamera: telafiyi kapat")
     ap.add_argument("--pick-points", action="store_true", help="Saha koselerini tiklayarak sec ve cik")
     ap.add_argument("--model", help="YOLO model yolu (config.yaml'daki yerine)")
@@ -94,6 +95,13 @@ def main():
                            max_seconds=args.max_seconds,
                            min_track_seconds=args.min_track_seconds, court_margin_m=args.court_margin)
     players = db.list_match_players(match_id)
+    if args.debug:
+        d = result["debug"]
+        print("\n[DEBUG] kod surumu: kamera-telafili takipci, min_track_seconds=%s" % args.min_track_seconds)
+        print(f"[DEBUG] kare={d['frames']}  kare basina ort. tespit={d['avg_detections_per_frame']:.1f}")
+        print(f"[DEBUG] kamera hareketi kestirilemeyen kare={d['camera_failed_frames']}")
+        print(f"[DEBUG] iz suresi (sn): medyan={d['track_seconds_median']:.1f}  maks={d['track_seconds_max']:.1f}  "
+              f">=3sn olan iz={d['tracks_over_3s']}")
 
     print(f"\nMac #{match_id}: {result['players']} oyuncu izi tutuldu "
           f"({result['tracks_raw']} ham izden), {result['frames_processed']} kare")

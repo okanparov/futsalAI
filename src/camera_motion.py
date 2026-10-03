@@ -16,6 +16,8 @@ class CameraMotionEstimator:
         self._prev_gray = None
         self._prev_pts = None
         self.to_ref = np.eye(3)  # guncel kare -> referans kare
+        self.frames = 0
+        self.failed = 0  # hareket kestirilemeyen kare sayisi (onceki donusum korunur)
 
     def _prep(self, frame, boxes):
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
@@ -33,6 +35,8 @@ class CameraMotionEstimator:
     def update(self, frame, boxes=()):
         """Guncel kareyi isle; kare->referans homografisini (3x3) dondurur."""
         gray, mask = self._prep(frame, boxes)
+        self.frames += 1
+        updated = self._prev_gray is None
         if self._prev_gray is not None and self._prev_pts is not None and len(self._prev_pts) >= self.min_points:
             cur_pts, status, _ = cv2.calcOpticalFlowPyrLK(self._prev_gray, gray, self._prev_pts, None)
             ok = status.ravel() == 1
@@ -46,6 +50,9 @@ class CameraMotionEstimator:
                                             cv2.RANSAC, 3.0)
                 if H is not None and inl is not None and inl.sum() >= self.min_points:
                     self.to_ref = self.to_ref @ H  # cur->prev, prev->ref ile birlestirilir
+                    updated = True
+        if not updated:
+            self.failed += 1
         self._prev_gray = gray
         self._prev_pts = self._features(gray, mask)
         return self.to_ref.copy()

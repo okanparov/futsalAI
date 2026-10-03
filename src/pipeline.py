@@ -19,6 +19,7 @@ def process_match(db, match_id, detector, tracker=None, fps=None, court_size_m=(
     estimator = CameraMotionEstimator() if camera_motion else None
     court_hom = court_homography(calibration, court_size_m) if calibration else None
     det_rows = []
+    det_total = frames_n = 0
     with VideoProcessor(match["video_path"]) as vp:
         stats = StatsCalculator((vp.width, vp.height), court_size_m, court_hom=court_hom,
                                bounds_margin_m=court_margin_m)
@@ -26,6 +27,8 @@ def process_match(db, match_id, detector, tracker=None, fps=None, court_size_m=(
             if max_seconds is not None and ts > max_seconds:
                 break
             dets = detector.detect(frame)
+            det_total += len(dets)
+            frames_n += 1
             cam = estimator.update(frame, dets) if estimator else None
             # takip referans (kamera-telafili) koordinatta yapilir; pan eslesmeyi bozmaz
             tracks = tracker.update(warp_boxes(cam, dets) if cam is not None else dets, frame)
@@ -42,5 +45,14 @@ def process_match(db, match_id, detector, tracker=None, fps=None, court_size_m=(
         db.save_match_stats(match_id, player_ids[tid], summary["distance_covered"],
                             rater.from_match_stats(summary), summary["coverage"], summary["heatmap"])
     db.mark_processed(match_id)
-    return {"players": len(player_ids), "tracks_raw": raw_tracks,
+    durations = sorted(stats.duration(t) for t in stats.track_ids())
+    debug = {
+        "frames": frames_n,
+        "avg_detections_per_frame": det_total / frames_n if frames_n else 0.0,
+        "camera_failed_frames": estimator.failed if estimator else None,
+        "track_seconds_median": durations[len(durations) // 2] if durations else 0.0,
+        "track_seconds_max": durations[-1] if durations else 0.0,
+        "tracks_over_3s": sum(d >= 3 for d in durations),
+    }
+    return {"players": len(player_ids), "tracks_raw": raw_tracks, "debug": debug,
             "frames_processed": len({r[0] for r in det_rows})}
