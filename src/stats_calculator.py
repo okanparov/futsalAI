@@ -9,23 +9,31 @@ from collections import defaultdict
 
 import numpy as np
 
+from src.camera_motion import apply_homography
+
 MAX_SPEED_MS = 12.0  # bunun ustundeki adimlar takip sicramasi sayilir
 
 
 class StatsCalculator:
-    def __init__(self, frame_size, court_size_m=(40.0, 20.0), grid=(8, 4)):
+    def __init__(self, frame_size, court_size_m=(40.0, 20.0), grid=(8, 4), court_hom=None):
         self.frame_w, self.frame_h = frame_size
         self.court_w, self.court_h = court_size_m
         self.grid = grid
+        self.court_hom = court_hom  # referans piksel -> metre (yoksa dogrusal olcek)
         self._pos = defaultdict(list)  # track_id -> [(t, x_m, y_m)]
 
-    def to_court(self, x, y):
+    def to_court(self, x, y, cam_to_ref=None):
+        """Kare pikselini (varsa kamera telafisiyle referans kareye tasiyip) metreye cevirir."""
+        if cam_to_ref is not None:
+            x, y = apply_homography(cam_to_ref, x, y)
+        if self.court_hom is not None:
+            return apply_homography(self.court_hom, x, y)
         return x / self.frame_w * self.court_w, y / self.frame_h * self.court_h
 
-    def add_frame(self, timestamp, tracks):
-        """tracks: Nx6 [x1,y1,x2,y2,id,conf]."""
+    def add_frame(self, timestamp, tracks, cam_to_ref=None):
+        """tracks: Nx6 [x1,y1,x2,y2,id,conf]; cam_to_ref: kamera hareketi homografisi (3x3)."""
         for x1, y1, x2, y2, tid, _ in tracks:
-            self._pos[int(tid)].append((timestamp, *self.to_court((x1 + x2) / 2, y2)))
+            self._pos[int(tid)].append((timestamp, *self.to_court((x1 + x2) / 2, y2, cam_to_ref)))
 
     def track_ids(self):
         return list(self._pos)

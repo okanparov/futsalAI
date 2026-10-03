@@ -1,21 +1,32 @@
 """detect -> track -> stats -> rating -> database."""
+from src.camera_motion import CameraMotionEstimator
+from src.court import court_homography
 from src.rating_system import RatingSystem
 from src.stats_calculator import StatsCalculator
 from src.tracker import PlayerTracker
 from src.video_processor import VideoProcessor
 
 
-def process_match(db, match_id, detector, tracker=None, fps=None, court_size_m=(40.0, 20.0)):
+def process_match(db, match_id, detector, tracker=None, fps=None, court_size_m=(40.0, 20.0),
+                  calibration=None, camera_motion=False, max_seconds=None):
+    """calibration: referans (ilk) karede sahanin 4 kosesi [sol-ust, sag-ust, sag-alt, sol-alt] piksel.
+    camera_motion: donen/pan yapan kamera icin telafiyi acar."""
     match = db.get_match(match_id)
     if not match:
         raise ValueError(f"mac bulunamadi: {match_id}")
     tracker = tracker or PlayerTracker()
+    estimator = CameraMotionEstimator() if camera_motion else None
+    court_hom = court_homography(calibration, court_size_m) if calibration else None
     det_rows = []
     with VideoProcessor(match["video_path"]) as vp:
-        stats = StatsCalculator((vp.width, vp.height), court_size_m)
+        stats = StatsCalculator((vp.width, vp.height), court_size_m, court_hom=court_hom)
         for frame_id, ts, frame in vp.extract_frames(fps=fps):
-            tracks = tracker.update(detector.detect(frame), frame)
-            stats.add_frame(ts, tracks)
+            if max_seconds is not None and ts > max_seconds:
+                break
+            dets = detector.detect(frame)
+            cam = estimator.update(frame, dets) if estimator else None
+            tracks = tracker.update(dets, frame)
+            stats.add_frame(ts, tracks, cam)
             for x1, y1, x2, y2, tid, conf in tracks:
                 det_rows.append((frame_id, int(tid), (x1 + x2) / 2, y2, float(conf), ts))
     # track_id -> players.id
