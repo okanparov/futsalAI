@@ -2,7 +2,7 @@
 from pathlib import Path
 
 import yaml
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
 from src.database import Database
 from src.pipeline import process_match as run_pipeline
@@ -15,6 +15,24 @@ def create_app(db_path=None, upload_dir="data/videos", detector_factory=None):
     app = Flask(__name__)
     db = Database(db_path or cfg.get("database", {}).get("path", "data/matches.db"))
     Path(upload_dir).mkdir(parents=True, exist_ok=True)
+
+    @app.get("/")
+    def index_page():
+        return render_template("index.html")
+
+    @app.get("/match/<int:match_id>")
+    def match_page(match_id):
+        return render_template("match_stats.html", match_id=match_id)
+
+    @app.get("/player/<int:player_id>")
+    def player_page(player_id):
+        return render_template("player_card.html", player_id=player_id)
+
+    @app.get("/api/match/<int:match_id>/players")
+    def match_players(match_id):
+        if not db.get_match(match_id):
+            return jsonify(error="mac bulunamadi"), 404
+        return jsonify(db.list_match_players(match_id))
 
     @app.post("/api/upload-video")
     def upload_video():

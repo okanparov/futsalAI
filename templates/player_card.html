@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Oyuncu {{ player_id }} · Futsal AI{% endblock %}
+{% block content %}
+<div class="card-wrap">
+  <div class="fc-card" id="card" hidden>
+    <div class="fc-top">
+      <div class="fc-rating" id="c-rating">--</div>
+      <div class="fc-pos" id="c-pos">--</div>
+    </div>
+    <div class="fc-name" id="c-name"></div>
+    <div class="fc-stats" id="c-stats"></div>
+  </div>
+  <section class="panel">
+    <h2>Isı haritası</h2>
+    <canvas id="heatmap" width="400" height="200"></canvas>
+    <p class="muted">Kırmızı bölgeler oyuncunun daha çok bulunduğu yerler.</p>
+  </section>
+</div>
+<p id="error" class="muted" hidden></p>
+{% endblock %}
+{% block scripts %}
+<script>window.PLAYER_ID = {{ player_id }};</script>
+<script src="{{ url_for('static', filename='js/player_cards.js') }}"></script>
+{% endblock %}

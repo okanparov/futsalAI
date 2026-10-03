@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Maç {{ match_id }} · Futsal AI{% endblock %}
+{% block content %}
+<h1 id="match-title">Maç {{ match_id }}</h1>
+<p id="match-meta" class="muted"></p>
+<section class="panel"><canvas id="ratings-chart" height="120"></canvas></section>
+<section class="panel">
+  <table id="players"><thead><tr><th>Oyuncu</th><th>Puan</th><th>Mesafe (m)</th><th>Saha kapsamı</th></tr></thead><tbody></tbody></table>
+  <p id="empty" class="muted" hidden>Bu maç henüz işlenmedi veya oyuncu bulunamadı.</p>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>window.MATCH_ID = {{ match_id }};</script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

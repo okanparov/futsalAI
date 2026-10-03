@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Panel · Futsal AI{% endblock %}
+{% block content %}
+<h1>Maçlar</h1>
+<section class="panel">
+  <h2>Yeni maç yükle</h2>
+  <form id="upload-form">
+    <input name="team1" placeholder="Takım 1" required>
+    <input name="team2" placeholder="Takım 2" required>
+    <input name="venue" placeholder="Saha">
+    <input type="file" name="video" accept="video/*" required>
+    <button type="submit">Yükle</button>
+  </form>
+  <p id="upload-msg" class="muted"></p>
+</section>
+<section class="panel">
+  <table id="matches"><thead><tr><th>#</th><th>Tarih</th><th>Maç</th><th>Durum</th><th></th></tr></thead><tbody></tbody></table>
+  <p id="empty" class="muted" hidden>Henüz maç yok.</p>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>{% endblock %}

@@ -1,4 +1,5 @@
 """SQLite operations."""
+import json
 import sqlite3
 from pathlib import Path
 
@@ -16,7 +17,8 @@ CREATE TABLE IF NOT EXISTS detections (
 CREATE TABLE IF NOT EXISTS match_stats (
     id INTEGER PRIMARY KEY, match_id INTEGER, player_id INTEGER,
     distance_covered REAL, pass_attempts INTEGER, pass_success INTEGER,
-    ball_touches INTEGER, tackles INTEGER, interceptions INTEGER, rating REAL);
+    ball_touches INTEGER, tackles INTEGER, interceptions INTEGER, rating REAL,
+    coverage REAL, heatmap TEXT);
 """
 
 
@@ -53,8 +55,21 @@ class Database:
 
     def get_player_stats(self, player_id):
         row = self.conn.execute(
-            "SELECT * FROM match_stats WHERE player_id=?", (player_id,)).fetchone()
-        return dict(row) if row else None
+            "SELECT s.*, p.player_name, p.position, p.jersey_number, p.match_id AS p_match "
+            "FROM match_stats s JOIN players p ON p.id = s.player_id WHERE s.player_id=?",
+            (player_id,)).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["heatmap"] = json.loads(d["heatmap"]) if d.get("heatmap") else None
+        return d
+
+    def list_match_players(self, match_id):
+        rows = self.conn.execute(
+            "SELECT s.player_id, p.player_name, p.position, s.distance_covered, s.rating, s.coverage "
+            "FROM match_stats s JOIN players p ON p.id = s.player_id "
+            "WHERE s.match_id=? ORDER BY s.rating DESC", (match_id,)).fetchall()
+        return [dict(r) for r in rows]
 
     def get_ratings(self, match_id):
         rows = self.conn.execute(
@@ -71,8 +86,11 @@ class Database:
         self.conn.commit()
         return cur.lastrowid
 
-    def save_match_stats(self, match_id, player_id, distance_covered, rating):
+    def save_match_stats(self, match_id, player_id, distance_covered, rating,
+                         coverage=None, heatmap=None):
         self.conn.execute(
-            "INSERT INTO match_stats (match_id, player_id, distance_covered, rating) VALUES (?,?,?,?)",
-            (match_id, player_id, distance_covered, rating))
+            "INSERT INTO match_stats (match_id, player_id, distance_covered, rating, coverage, heatmap) "
+            "VALUES (?,?,?,?,?,?)",
+            (match_id, player_id, distance_covered, rating, coverage,
+             json.dumps(heatmap) if heatmap is not None else None))
         self.conn.commit()

@@ -46,3 +46,20 @@ def test_process_endpoint(tmp_path):
     assert r.status_code == 200 and r.get_json()["players"] == 1
     assert len(c.get(f"/api/match/{mid}/ratings").get_json()) == 1
     assert c.post("/api/process-match", json={"match_id": 99}).status_code == 404
+
+
+def test_pages_and_card_data(tmp_path):
+    video = str(tmp_path / "m.avi")
+    make_video(video)
+    app = create_app(db_path=":memory:", upload_dir=str(tmp_path), detector_factory=FakeDetector)
+    c = app.test_client()
+    with open(video, "rb") as f:
+        mid = c.post("/api/upload-video", data={"video": (f, "m.avi")}).get_json()["match_id"]
+    c.post("/api/process-match", json={"match_id": mid})
+    for url in ("/", f"/match/{mid}", "/player/1"):
+        assert c.get(url).status_code == 200
+    players = c.get(f"/api/match/{mid}/players").get_json()
+    assert len(players) == 1
+    stats = c.get(f"/api/player/{players[0]['player_id']}/stats").get_json()
+    assert stats["player_name"] and len(stats["heatmap"]) == 4 and len(stats["heatmap"][0]) == 8
+    assert c.get("/api/match/99/players").status_code == 404
