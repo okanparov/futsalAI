@@ -1,0 +1,15 @@
+video:
+  input_fps: 30
+  resolution: [1920, 1080]
+detection:
+  model_path: models/yolov8n.pt
+  confidence: 0.4
+  use_onnx_gpu: true
+tracking:
+  tracker: deepsort
+  max_age: 30
+database:
+  path: data/matches.db
+server:
+  host: 127.0.0.1
+  port: 5000

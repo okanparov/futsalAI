@@ -1,0 +1,15 @@
+futsal_env/
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.pt
+*.onnx
+*.pkl
+data/*.db
+data/videos/*
+data/exports/*
+!data/videos/.gitkeep
+!data/exports/.gitkeep
+.env

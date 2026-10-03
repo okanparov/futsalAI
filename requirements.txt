@@ -1,0 +1,11 @@
+ultralytics
+boxmot
+mediapipe
+opencv-python
+onnxruntime-gpu
+flask
+numpy
+pandas
+scikit-learn
+pyyaml
+pytest
