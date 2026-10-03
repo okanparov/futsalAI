@@ -5,9 +5,10 @@ import yaml
 from flask import Flask, jsonify, request
 
 from src.database import Database
+from src.pipeline import process_match as run_pipeline
 
 
-def create_app(db_path=None, upload_dir="data/videos"):
+def create_app(db_path=None, upload_dir="data/videos", detector_factory=None):
     cfg = {}
     if Path("config.yaml").exists():
         cfg = yaml.safe_load(Path("config.yaml").read_text()) or {}
@@ -31,8 +32,17 @@ def create_app(db_path=None, upload_dir="data/videos"):
         match_id = (request.get_json(silent=True) or {}).get("match_id")
         if not db.get_match(match_id):
             return jsonify(error="mac bulunamadi"), 404
-        # TODO(Sprint 2): pipeline'i (detect -> track -> stats) calistir.
-        return jsonify(error="isleme henuz uygulanmadi"), 501
+        try:
+            if detector_factory:
+                detector = detector_factory()
+            else:
+                from src.player_detector import PlayerDetector
+                det_cfg = cfg.get("detection", {})
+                detector = PlayerDetector(det_cfg.get("model_path", "models/yolov8n.pt"),
+                                          det_cfg.get("confidence", 0.4))
+        except ImportError as e:
+            return jsonify(error=f"dedektor yuklenemedi: {e}"), 503
+        return jsonify(run_pipeline(db, match_id, detector))
 
     @app.get("/api/match/<int:match_id>")
     def match(match_id):

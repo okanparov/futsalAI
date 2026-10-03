@@ -63,3 +63,16 @@ class Database:
 
     def list_matches(self):
         return [dict(r) for r in self.conn.execute("SELECT * FROM matches ORDER BY id DESC")]
+
+    def add_player(self, match_id, name, team_id=None, position=None):
+        cur = self.conn.execute(
+            "INSERT INTO players (match_id, team_id, player_name, position) VALUES (?,?,?,?)",
+            (match_id, team_id, name, position))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def save_match_stats(self, match_id, player_id, distance_covered, rating):
+        self.conn.execute(
+            "INSERT INTO match_stats (match_id, player_id, distance_covered, rating) VALUES (?,?,?,?)",
+            (match_id, player_id, distance_covered, rating))
+        self.conn.commit()
