@@ -11,7 +11,7 @@ Ayrıntılı proje bağlamı için `context.md` dosyasına bakın.
 | Oyuncu tespiti (YOLOv8) | Yazıldı, **gerçek modelle denenmedi** |
 | Poz tahmini (MediaPipe) | Yazıldı, **denenmedi** |
 | Kamera hareketi telafisi (pan) | Çalışıyor (sentetik testle), gerçek videoda denenmedi |
-| Takip | Basit IoU takipçisi. DeepSORT (boxmot) **bağlı değil** |
+| Takip | Hareket tahminli, kamera-telafili takipçi (ek kütüphane yok); DeepSORT/ReID bağlı değil |
 | İstatistik | Mesafe, ısı haritası, saha kapsamı |
 | Puan sistemi (0-99) | Çalışıyor; şu an yalnızca kapsam + mesafeye dayanıyor |
 | Web arayüzü | Maç listesi, maç detayı, oyuncu kartı |

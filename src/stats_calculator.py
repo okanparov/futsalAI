@@ -15,11 +15,12 @@ MAX_SPEED_MS = 12.0  # bunun ustundeki adimlar takip sicramasi sayilir
 
 
 class StatsCalculator:
-    def __init__(self, frame_size, court_size_m=(40.0, 20.0), grid=(8, 4), court_hom=None):
+    def __init__(self, frame_size, court_size_m=(40.0, 20.0), grid=(8, 4), court_hom=None, bounds_margin_m=None):
         self.frame_w, self.frame_h = frame_size
         self.court_w, self.court_h = court_size_m
         self.grid = grid
         self.court_hom = court_hom  # referans piksel -> metre (yoksa dogrusal olcek)
+        self.bounds_margin_m = bounds_margin_m  # None: sinir yok; sayi: saha disi (metre) noktalar atilir
         self._pos = defaultdict(list)  # track_id -> [(t, x_m, y_m)]
 
     def to_court(self, x, y, cam_to_ref=None):
@@ -33,10 +34,18 @@ class StatsCalculator:
     def add_frame(self, timestamp, tracks, cam_to_ref=None):
         """tracks: Nx6 [x1,y1,x2,y2,id,conf]; cam_to_ref: kamera hareketi homografisi (3x3)."""
         for x1, y1, x2, y2, tid, _ in tracks:
-            self._pos[int(tid)].append((timestamp, *self.to_court((x1 + x2) / 2, y2, cam_to_ref)))
+            x, y = self.to_court((x1 + x2) / 2, y2, cam_to_ref)
+            m = self.bounds_margin_m
+            if m is not None and not (-m <= x <= self.court_w + m and -m <= y <= self.court_h + m):
+                continue
+            self._pos[int(tid)].append((timestamp, x, y))
 
     def track_ids(self):
         return list(self._pos)
+
+    def duration(self, tid):
+        pts = self._pos[tid]
+        return pts[-1][0] - pts[0][0] if pts else 0.0
 
     def distance(self, tid):
         pts, total = self._pos[tid], 0.0

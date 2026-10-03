@@ -1,58 +1,73 @@
-"""Player tracking. Uses boxmot DeepSORT when available, else a greedy IoU tracker."""
+"""Oyuncu takibi: hareket tahminli, mesafe tabanli, bagimsiz (ek kutuphane gerektirmez).
+
+Koordinatlar kamera telafisiyle referans karede verilirse pan/donus eslesmeyi bozmaz.
+Eslesme maliyeti: ayak noktasi mesafesi / kutu boyu. Ilk `min_hits` karede gorulmeyen
+aday izler (hayalet tespitler) cikti uretmez ve kimlik tuketmez.
+"""
 import numpy as np
 
 
-def iou(a, b):
-    x1, y1 = max(a[0], b[0]), max(a[1], b[1])
-    x2, y2 = min(a[2], b[2]), min(a[3], b[3])
-    inter = max(0.0, x2 - x1) * max(0.0, y2 - y1)
-    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
-    return inter / union if union > 0 else 0.0
-
-
-class IouTracker:
-    def __init__(self, max_age=30, iou_threshold=0.3):
+class MotionTracker:
+    def __init__(self, max_age=30, min_hits=3, gate=1.0):
         self.max_age = max_age
-        self.iou_threshold = iou_threshold
+        self.min_hits = min_hits
+        self.gate = gate
         self._next_id = 1
-        self._tracks = {}  # id -> (bbox, age)
+        self._tracks = []
+
+    @staticmethod
+    def _foot(box):
+        return np.array([(box[0] + box[2]) / 2, box[3]])
 
     def update(self, detections, frame=None):
-        """detections: Nx5 [x1,y1,x2,y2,conf]. Returns Nx6 [x1,y1,x2,y2,id,conf]."""
-        out, used = [], set()
-        for det in detections:
-            best_id, best = None, self.iou_threshold
-            for tid, (box, _) in self._tracks.items():
-                if tid in used:
-                    continue
-                score = iou(det[:4], box)
-                if score > best:
-                    best_id, best = tid, score
-            if best_id is None:
-                best_id, self._next_id = self._next_id, self._next_id + 1
-            used.add(best_id)
-            self._tracks[best_id] = (det[:4], 0)
-            out.append([*det[:4], best_id, det[4]])
-        for tid in list(self._tracks):
-            if tid not in used:
-                box, age = self._tracks[tid]
-                if age + 1 > self.max_age:
-                    del self._tracks[tid]
-                else:
-                    self._tracks[tid] = (box, age + 1)
+        """detections: Nx5 [x1,y1,x2,y2,conf]. Dondurur: Nx6 [x1,y1,x2,y2,id,conf] (onayli izler)."""
+        dets = np.asarray(detections, dtype=float).reshape(-1, 5)
+        pairs = []
+        for ti, t in enumerate(self._tracks):
+            pred = t["pos"] + t["vel"] * min(t["lost"] + 1, 5)
+            gate = self.gate * (1 + 0.15 * min(t["lost"], 10))
+            for di, d in enumerate(dets):
+                cost = np.linalg.norm(self._foot(d) - pred) / max(t["h"], d[3] - d[1], 1.0)
+                if cost < gate:
+                    pairs.append((cost, ti, di))
+        pairs.sort()
+        used_t, used_d, out = set(), set(), []
+        for _, ti, di in pairs:
+            if ti in used_t or di in used_d:
+                continue
+            used_t.add(ti)
+            used_d.add(di)
+            t, d = self._tracks[ti], dets[di]
+            pos = self._foot(d)
+            t["vel"] = 0.5 * t["vel"] + 0.5 * (pos - t["pos"]) / (t["lost"] + 1)
+            t["pos"], t["h"], t["lost"], t["hits"] = pos, d[3] - d[1], 0, t["hits"] + 1
+            if t["id"] is None and t["hits"] >= self.min_hits:
+                t["id"], self._next_id = self._next_id, self._next_id + 1
+            if t["id"] is not None:
+                out.append([*d[:4], t["id"], d[4]])
+        n_old = len(self._tracks)
+        for di, d in enumerate(dets):
+            if di not in used_d:
+                t = {"pos": self._foot(d), "vel": np.zeros(2), "h": d[3] - d[1], "hits": 1, "lost": 0, "id": None}
+                if self.min_hits <= 1:
+                    t["id"], self._next_id = self._next_id, self._next_id + 1
+                    out.append([*d[:4], t["id"], d[4]])
+                self._tracks.append(t)
+        kept = []
+        for ti, t in enumerate(self._tracks):
+            if ti >= n_old or ti in used_t:
+                kept.append(t)  # bu karede eslesti ya da yeni acildi
+                continue
+            t["lost"] += 1
+            if t["id"] is not None and t["lost"] <= self.max_age:  # aday izler kayipta hemen silinir
+                kept.append(t)
+        self._tracks = kept
         return np.array(out, dtype=float).reshape(-1, 6)
 
 
 class PlayerTracker:
-    def __init__(self, max_age=30):
-        self._impl = IouTracker(max_age=max_age)
-        self.backend = "iou"
-        try:
-            from boxmot import DeepOcSort  # noqa: F401  (boxmot kurulu mu?)
-        except Exception:
-            return
-        # boxmot API surumler arasi degisiyor; entegrasyon gercek GPU makinede dogrulanmali.
-        # Su an varsayilan IoU takipcisi kullanilir.
+    def __init__(self, max_age=30, min_hits=3, gate=1.0):
+        self._impl = MotionTracker(max_age=max_age, min_hits=min_hits, gate=gate)
 
     def update(self, detections, frame=None):
         return self._impl.update(detections, frame)

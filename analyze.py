@@ -61,6 +61,10 @@ def main():
     ap.add_argument("--max-seconds", type=float, help="Yalnizca ilk N saniyeyi isle")
     ap.add_argument("--court", default="40x20", help="Saha boyutu metre, ornek 40x20")
     ap.add_argument("--calib", type=parse_calib, help="Ilk karede saha koseleri (8 sayi)")
+    ap.add_argument("--min-track-seconds", type=float, default=3.0,
+                    help="Bundan kisa izler (hayalet/yanlis tespit) atilir (varsayilan 3)")
+    ap.add_argument("--court-margin", type=float,
+                    help="Saha disi tolerans (m): disindaki tespitler (seyirci/yedek) atilir; dogru --calib gerekir")
     ap.add_argument("--no-camera-motion", action="store_true", help="Sabit kamera: telafiyi kapat")
     ap.add_argument("--pick-points", action="store_true", help="Saha koselerini tiklayarak sec ve cik")
     ap.add_argument("--model", help="YOLO model yolu (config.yaml'daki yerine)")
@@ -87,10 +91,12 @@ def main():
     match_id = db.add_match(args.team1, args.team2, video_path=str(Path(args.video).resolve()))
     result = process_match(db, match_id, detector, fps=args.fps, court_size_m=(cw, ch),
                            calibration=args.calib, camera_motion=not args.no_camera_motion,
-                           max_seconds=args.max_seconds)
+                           max_seconds=args.max_seconds,
+                           min_track_seconds=args.min_track_seconds, court_margin_m=args.court_margin)
     players = db.list_match_players(match_id)
 
-    print(f"\nMac #{match_id}: {result['players']} iz, {result['frames_processed']} kare")
+    print(f"\nMac #{match_id}: {result['players']} oyuncu izi tutuldu "
+          f"({result['tracks_raw']} ham izden), {result['frames_processed']} kare")
     print(f"{'Oyuncu':<14}{'Puan':>6}{'Mesafe(m)':>12}{'Kapsam':>9}")
     for p in players:
         cov = "--" if p["coverage"] is None else f"{p['coverage']:.0%}"

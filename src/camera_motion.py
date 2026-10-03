@@ -54,3 +54,15 @@ class CameraMotionEstimator:
 def apply_homography(H, x, y):
     p = H @ np.array([x, y, 1.0])
     return p[0] / p[2], p[1] / p[2]
+
+
+def warp_boxes(H, dets):
+    """Nx(>=4) kutulari H ile donusturur (koseler donusturulup sinirlayici kutu alinir)."""
+    dets = np.asarray(dets, dtype=float)
+    if H is None or len(dets) == 0:
+        return dets
+    out = dets.copy()
+    for i, d in enumerate(dets):
+        xs, ys = zip(*[apply_homography(H, x, y) for x, y in ((d[0], d[1]), (d[2], d[1]), (d[2], d[3]), (d[0], d[3]))])
+        out[i, :4] = [min(xs), min(ys), max(xs), max(ys)]
+    return out
