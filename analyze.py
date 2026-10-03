@@ -65,6 +65,8 @@ def main():
                     help="Bundan kisa izler (hayalet/yanlis tespit) atilir (varsayilan 3)")
     ap.add_argument("--court-margin", type=float,
                     help="Saha disi tolerans (m): disindaki tespitler (seyirci/yedek) atilir; dogru --calib gerekir")
+    ap.add_argument("--annotate", metavar="CIKTI.mp4",
+                    help="Kutu ve oyuncu numaralari cizilmis kontrol videosu yaz")
     ap.add_argument("--debug", action="store_true", help="Takip/kamera tanilama bilgisini yazdir")
     ap.add_argument("--no-camera-motion", action="store_true", help="Sabit kamera: telafiyi kapat")
     ap.add_argument("--pick-points", action="store_true", help="Saha koselerini tiklayarak sec ve cik")
@@ -93,7 +95,7 @@ def main():
     result = process_match(db, match_id, detector, fps=args.fps, court_size_m=(cw, ch),
                            calibration=args.calib, camera_motion=not args.no_camera_motion,
                            max_seconds=args.max_seconds,
-                           min_track_seconds=args.min_track_seconds, court_margin_m=args.court_margin)
+                           min_track_seconds=args.min_track_seconds, court_margin_m=args.court_margin, annotate_path=args.annotate)
     players = db.list_match_players(match_id)
     if args.debug:
         d = result["debug"]
@@ -111,6 +113,8 @@ def main():
         print(f"{p['player_name']:<14}{p['rating'] if p['rating'] is not None else '--':>6}"
               f"{p['distance_covered']:>12.0f}{cov:>9}")
 
+    if args.annotate:
+        print(f"Kontrol videosu: {args.annotate}")
     out = Path("data/exports")
     out.mkdir(parents=True, exist_ok=True)
     (out / f"match_{match_id}.json").write_text(json.dumps(players, indent=2, ensure_ascii=False))

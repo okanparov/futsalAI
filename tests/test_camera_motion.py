@@ -68,3 +68,20 @@ def test_court_homography_corners():
     hom = court_homography([[10, 10], [110, 12], [120, 80], [5, 78]], (40, 20))
     assert np.allclose(ap(hom, 10, 10), (0, 0), atol=1e-3)
     assert np.allclose(ap(hom, 120, 80), (40, 20), atol=1e-3)
+
+
+def test_annotated_video_written(tmp_path):
+    path = str(tmp_path / "pan.avi")
+    w = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"MJPG"), 10, (W, H))
+    for f in frames():
+        w.write(f)
+    w.release()
+    out = str(tmp_path / "ann.avi")
+    db = Database(":memory:")
+    mid = db.add_match("A", "B", video_path=path)
+    process_match(db, mid, WorldFixedDetector(), camera_motion=True, annotate_path=out)
+    cap = cv2.VideoCapture(out)
+    n = 0
+    while cap.read()[0]:
+        n += 1
+    assert n == N
